@@ -33,8 +33,6 @@ pub enum Error {
 	#[from]
 	DecryptExt(web::mw_req_decrypt::DecryptExtError),
 	
-	#[from]
-	JsonExt(web::mw_req_decrypt::JsonExtError),
 
 	// -- Extractors
 	ReqStampNotInReqExt,

@@ -10,6 +10,7 @@ lib-utils = { path = "../../libs/lib-utils"}
 lib-rpc = { path = "../../libs/lib-rpc"}
 lib-auth = { path = "../../libs/lib-auth"}
 lib-core = { path = "../../libs/lib-core"}
+lib-decrypt = { path = "../../libs/lib-decrypt"}
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # -- Json

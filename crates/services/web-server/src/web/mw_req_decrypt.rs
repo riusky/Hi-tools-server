@@ -33,7 +33,8 @@ where
 
     let body_str = std::str::from_utf8(&bytes).map_err(|_| DecryptExtError::DecryptError)?;
 
-    let json_value = parse_json(body_str).map_err(|_| DecryptExtError::DecryptError)?;
+    let json_value:Value = serde_json::from_str(body_str).map_err(|_| DecryptExtError::DecryptError)?;
+    
     println!("Valid JSON: {:?}", json_value);
 
     if let Some(pwd) = json_value.get("pwd") {
@@ -51,28 +52,5 @@ type BytesExtResult = core::result::Result<Bytes, DecryptExtError>;
 #[derive(Clone, Serialize, Debug)]
 pub enum DecryptExtError {
 	DecryptError,
-}
-// endregion: --- Ctx Extractor Result/Error
-
-
-fn parse_json(json_str: &str) -> JsonExtResult {
-	// let from_str: std::result::Result<Value, serde_json::Error> = serde_json::from_str(json_str);
-    let json_value: Value = serde_json::from_str(json_str).map_err(|ex| JsonExtError::SerdeJsonError(ex.to_string()))?;
-    // match serde_json::from_str(json_str) {
-		
-	// } .is_err() {
-
-	// } 
-    Ok(json_value)
-	// JsonExtError::FailJson
-}
-
-// region:    --- Ctx Extractor Result/Error
-type JsonExtResult = core::result::Result<Value, JsonExtError>;
-
-#[derive(Clone, Serialize, Debug)]
-pub enum JsonExtError {
-	SerdeJsonError(String),
-	FailJson
 }
 // endregion: --- Ctx Extractor Result/Error
