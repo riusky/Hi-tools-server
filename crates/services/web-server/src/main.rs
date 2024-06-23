@@ -10,6 +10,7 @@ use config::web_config;
 
 use crate::web::mw_auth::{mw_ctx_require, mw_ctx_resolver};
 use crate::web::mw_req_stamp::mw_req_stamp_resolver;
+use crate::web::mw_req_decrypt::mw_req_decrypt_resolver;
 use crate::web::mw_res_map::mw_reponse_map;
 use crate::web::{routes_login, routes_static};
 use axum::{middleware, Router};
@@ -35,12 +36,15 @@ async fn main() -> Result<()> {
 
 	let mm = ModelManager::new().await?;
 
+	// -- Define Routes login
+	let login_routes = routes_login::routes(mm.clone()).route_layer(middleware::from_fn(mw_req_decrypt_resolver));
+
 	// -- Define Routes
 	let routes_rpc = web::routes_rpc::routes(mm.clone())
 		.route_layer(middleware::from_fn(mw_ctx_require));
 
 	let routes_all = Router::new()
-		.merge(routes_login::routes(mm.clone()))
+		.merge(login_routes)
 		.nest("/api", routes_rpc)
 		.layer(middleware::map_response(mw_reponse_map))
 		.layer(middleware::from_fn_with_state(mm.clone(), mw_ctx_resolver))

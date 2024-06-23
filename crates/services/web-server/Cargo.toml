@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+http-body-util = "0.1.0"
 # -- App Libs
 lib-utils = { path = "../../libs/lib-utils"}
 lib-rpc = { path = "../../libs/lib-rpc"}

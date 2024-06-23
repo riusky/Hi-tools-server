@@ -29,6 +29,13 @@ pub enum Error {
 	#[from]
 	CtxExt(web::mw_auth::CtxExtError),
 
+	// -- DecryptExtError
+	#[from]
+	DecryptExt(web::mw_req_decrypt::DecryptExtError),
+	
+	#[from]
+	JsonExt(web::mw_req_decrypt::JsonExtError),
+
 	// -- Extractors
 	ReqStampNotInReqExt,
 
