@@ -1,4 +1,4 @@
-use lib_utils::envs::{get_env_b64u_as_u8s, get_env_parse};
+use lib_utils::envs::get_env_b64u_as_u8s;
 use std::sync::OnceLock;
 
 pub fn rsa_config() -> &'static RsaConfig {
