@@ -7,9 +7,12 @@ use base64::engine::{general_purpose, Engine};
 use rand::Rng;
 use ring::aead;
 use rsa::{
+    sha2::{Sha256, Digest},
+    signature::{Signer, Verifier},
     pkcs8::{DecodePrivateKey, DecodePublicKey},
-    Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,
+    Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,pkcs1v15
 };
+use rsa::pkcs1v15::{SigningKey, VerifyingKey};
 
 /// 生成指定长度的随机字节数组。
 ///
@@ -196,6 +199,84 @@ pub fn decrypt_rsa(enc_data: &str) -> Result<String> {
     String::from_utf8(decrypted_data).map_err(|_| Error::Utf8ConversionError)
 }
 
+/// 使用私钥对给定的数据进行签名。
+///
+/// # 参数
+///
+/// * `data` - 要签名的数据。
+///
+/// # 返回值
+///
+/// base64 编码的签名。
+///
+/// # 错误
+///
+/// 如果签名过程失败，返回 `Error`。
+pub fn sign_rsa(data: &str) -> Result<String> {
+    let private_key_pem = String::from_utf8(rsa_config().PRIVATE_KEY.to_vec())
+        .map_err(|_| Error::Utf8ConversionError)?;
+    let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
+        .map_err(|_| Error::RsaKeyGenerationError)?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_bytes());
+    let hashed = hasher.finalize();
+
+    let signing_key = SigningKey::<Sha256>::new(private_key);
+    let signature = signing_key.try_sign(&hashed).map_err(|_| Error::RsaKeyGenerationError)?;
+    println!("signature_str: {}", signature.to_string());
+    // let into:String = signature.into();
+    // let bytes = signature.to_bytes().as_ref();
+    
+    // let vec = signature.to_bytes().as_ref().to_vec();
+    // signature.to
+
+    Ok(general_purpose::URL_SAFE_NO_PAD.encode(signature.to_string()))
+}
+
+/// 使用公钥验证给定数据的签名。
+///
+/// # 参数
+///
+/// * `data` - 要验证的数据。
+/// * `signature` - 要验证的 base64 编码签名。
+///
+/// # 返回值
+///
+/// 如果验证成功，返回 `Ok(())`。
+///
+/// # 错误
+///
+/// 如果验证过程失败，返回 `Error`。
+pub fn verify_rsa(data: &str, signature: &str) -> Result<()> {
+    let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
+        .map_err(|_| Error::Utf8ConversionError)?;
+    let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
+        .map_err(|_| Error::RsaKeyGenerationError)?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_bytes());
+    let hashed = hasher.finalize();
+
+    let signature_bytes = general_purpose::URL_SAFE_NO_PAD
+        .decode(signature)
+        .map_err(|_| Error::DecodeError)?;
+    println!("signature_str: {}", String::from_utf8(signature_bytes.clone()).unwrap());
+
+    let verifying_key = VerifyingKey::<Sha256>::new(public_key);
+    let signature = pkcs1v15::Signature::try_from(signature_bytes.as_slice())
+        .map_err(|_| Error::RsaVerificationError)?;
+
+
+    println!("signature_str: {}", signature.to_string());
+
+    verifying_key
+        .verify(&hashed, &signature)
+        .map_err(|_| Error::RsaVerificationError)?;
+
+    Ok(())
+}
+
 /// 加密函数的单元测试。
 #[cfg(test)]
 mod tests {
@@ -226,6 +307,14 @@ mod tests {
         let rsa_str_en = decrypt_rsa(&rsa_str)?;
         println!("解密后的 RSA 字符串: {}", rsa_str_en);
         assert_eq!("123", rsa_str_en);
+
+        // 测试 RSA 签名和验签
+        let data = "hello, RSA signing!";
+        let signature = sign_rsa(data)?;
+        println!("签名: {}", signature);
+    
+        verify_rsa(data, &signature)?;
+        println!("验证成功!");
 
         Ok(())
     }

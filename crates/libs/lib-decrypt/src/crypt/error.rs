@@ -21,6 +21,10 @@ pub enum Error {
     RsaEncryptionError,
     #[error("RSA decryption error occurred")]
     RsaDecryptionError,
+    #[error("RSA signing error occurred")]
+    RsaSigningError,
+    #[error("RSA verification error occurred")]
+    RsaVerificationError,
     #[error("UTF-8 conversion error occurred")]
     Utf8ConversionError,
     #[error("not is json")]

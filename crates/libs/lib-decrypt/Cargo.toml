@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 thiserror = "1.0.61"
-rsa = "0.9.6"  # 请根据实际需要选择最新版本
+rsa = {version = "0.9.6" ,features = ["sha2"]}
 base64 = "0.22.1"
 ring = "0.17.8"
 rand = "0.8.5"

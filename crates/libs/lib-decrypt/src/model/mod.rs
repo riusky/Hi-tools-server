@@ -4,7 +4,9 @@ use crate::crypt::error;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use lib_utils::json::is_valid_json;
-use crate::crypt::{decrypt_aes, encrypt_aes, encrypt_aes_plaintext};
+use lib_utils::time::now_utc;
+use lib_utils::time::format_time;
+use crate::crypt::{decrypt_aes, encrypt_aes, encrypt_aes_plaintext,encrypt_rsa};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct EncryptedData {
@@ -31,13 +33,25 @@ impl FromStr for EncryptedData {
 
         // 执行aes加密
         let (key,iv,ciphertext) = encrypt_aes_plaintext(json_str)?;
+        let now_utc = now_utc();
+        let format_time = format_time(now_utc);
+        
+        // 执行rsa加密
+        let encrypt_rsa_key = encrypt_rsa(&key)?;
+        let encrypt_rsa_iv = encrypt_rsa(&iv)?;
+        let encrypt_rsa_time = encrypt_rsa(&format_time)?;
+        
+        // 执行rsa签名
+
+
+
 
         
 		Ok(Self {
-            a: "".to_string(),
-            b: "".to_string(),
-            c: "".to_string(),
-            d: "".to_string(),
+            a: encrypt_rsa_key,
+            b: encrypt_rsa_iv,
+            c: ciphertext,
+            d: encrypt_rsa_time,
             e: "".to_string(),
             f: "".to_string(),
 		})
