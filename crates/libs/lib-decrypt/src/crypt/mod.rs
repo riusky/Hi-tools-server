@@ -1,6 +1,6 @@
 //! 此模块提供了加密功能，包括 AES 加密/解密和 RSA 加密/解密。
 
-mod error;
+pub mod error;
 pub use self::error::{Error, Result};
 use crate::config::rsa_config;
 use base64::engine::{general_purpose, Engine};
@@ -39,7 +39,7 @@ fn generate_random_bytes(len: usize) -> Vec<u8> {
 /// # 错误
 ///
 /// 如果加密过程失败，返回 `Error`。
-fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
+pub fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
     let iv = generate_random_bytes(12);
 
     let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
@@ -61,6 +61,44 @@ fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
     ))
 }
 
+/// 使用指定的密钥通过 AES-256-GCM 加密给定的明文。
+///
+/// # 参数
+///
+/// * `key` - 加密密钥（对于 AES-256，必须是 32 字节）。
+/// * `plaintext` - 要加密的明文。
+///
+/// # 返回值
+///
+/// 一个包含 base64 编码的密文和 base64 编码的初始化向量 (IV) 的元组。
+///
+/// # 错误
+///
+/// 如果加密过程失败，返回 `Error`。
+pub fn encrypt_aes_plaintext(plaintext: &str) -> Result<(String,String,String)> {
+    let key = generate_random_bytes(32);
+    let iv = generate_random_bytes(12);
+
+    let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
+        .map_err(|_| Error::KeyGenerationError)?;
+    let sealing_key = aead::LessSafeKey::new(sealing_key);
+    let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
+        .map_err(|_| Error::KeyGenerationError)?;
+
+    let mut in_out = plaintext.as_bytes().to_vec();
+    in_out.extend_from_slice(&[0u8; 16]);
+
+    sealing_key
+        .seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+        .map_err(|_| Error::EncryptionError)?;
+
+    Ok((
+        general_purpose::URL_SAFE_NO_PAD.encode(key),
+        general_purpose::URL_SAFE_NO_PAD.encode(iv),
+        general_purpose::URL_SAFE_NO_PAD.encode(in_out),
+    ))
+}
+
 /// 使用指定的密钥和初始化向量 (IV) 通过 AES-256-GCM 解密给定的密文。
 ///
 /// # 参数
@@ -76,7 +114,7 @@ fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
 /// # 错误
 ///
 /// 如果解密过程失败，返回 `Error`。
-fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
+pub fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
     let ciphertext_bytes = general_purpose::URL_SAFE_NO_PAD
         .decode(ciphertext)
         .map_err(|_| Error::DecodeError)?;
@@ -115,7 +153,7 @@ fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
 /// # 错误
 ///
 /// 如果加密过程失败，返回 `Error`。
-fn encrypt_rsa(plaintext: &str) -> Result<String> {
+pub fn encrypt_rsa(plaintext: &str) -> Result<String> {
     let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
         .map_err(|_| Error::Utf8ConversionError)?;
     let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
@@ -141,7 +179,7 @@ fn encrypt_rsa(plaintext: &str) -> Result<String> {
 /// # 错误
 ///
 /// 如果解密过程失败，返回 `Error`。
-fn decrypt_rsa(enc_data: &str) -> Result<String> {
+pub fn decrypt_rsa(enc_data: &str) -> Result<String> {
     let enc_data = general_purpose::URL_SAFE_NO_PAD
         .decode(enc_data)
         .map_err(|_| Error::DecodeError)?;
@@ -175,7 +213,7 @@ mod tests {
 
         let plaintext = "Hello, AES with random IV and Key!";
         let (encrypted, iv) = encrypt_aes(&key, plaintext)?;
-        println!("IV: {}", iv);
+        println!("AES的随机向量IV: {}", iv);
         println!("加密后的密文: {}", encrypted);
 
         let decrypted = decrypt_aes(&key, &encrypted, &iv)?;

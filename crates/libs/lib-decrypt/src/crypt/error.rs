@@ -23,6 +23,8 @@ pub enum Error {
     RsaDecryptionError,
     #[error("UTF-8 conversion error occurred")]
     Utf8ConversionError,
+    #[error("not is json")]
+    JsonConversionError,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
