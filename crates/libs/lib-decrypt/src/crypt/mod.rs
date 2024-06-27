@@ -3,7 +3,6 @@
 pub mod error;
 pub use self::error::{Error, Result};
 use crate::config::rsa_config;
-use base64::engine::{general_purpose, Engine};
 use lib_utils::b64;
 use rand::Rng;
 use ring::aead;
