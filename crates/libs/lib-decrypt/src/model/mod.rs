@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 /// 结构体 `EncryptedData` 用于表示经过加密和签名的数据结构。
 #[derive(Serialize, Deserialize, Debug)]
-struct EncryptedData {
+pub struct EncryptedData {
     a: String, // AES密钥，使用RSA加密
     b: String, // AES IV，使用RSA加密
     c: String, // AES加密的数据
@@ -20,6 +20,13 @@ struct EncryptedData {
 }
 
 impl EncryptedData {
+
+    /// 将 `EncryptedData` 结构体转换为 JSON 字符串。
+    pub fn to_json_string(&self) -> Result<String> {
+        serde_json::to_string(self).map_err(|_| Error::JsonConversionError)
+    }
+
+
     /// 判断一个JSON字符串是否能转换为`EncryptedData`结构，如果可以则转化为这个结构。
     ///
     /// # 参数
@@ -175,4 +182,23 @@ mod tests {
         let encrypted_data = EncryptedData::from_json(json_str);
         assert!(encrypted_data.is_err());
     }
+
+    #[test]
+    fn test_to_json(){
+        let encrypted_data = EncryptedData {
+            a: String::from("encrypted_aes_key"),
+            b: String::from("encrypted_aes_iv"),
+            c: String::from("encrypted_data"),
+            d: String::from("encrypted_request_time"),
+            e: String::from("encrypted_request_id"),
+            f: String::from("rsa_signature"),
+        };
+    
+        // 将 EncryptedData 转换为 JSON 字符串
+        let json_string = encrypted_data.to_json_string().unwrap();
+        println!("EncryptedData as JSON: {}", json_string);
+
+    }
+
+
 }

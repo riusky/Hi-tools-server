@@ -4,6 +4,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub type Error = Box<dyn std::error::Error>; // For examples.
 
 use serde_json::{json, Value};
+use lib_decrypt::model;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,13 +12,22 @@ async fn main() -> Result<()> {
 
 	// hc.do_get("/index.html").await?.print().await?;
 
+	let login_data = json!({
+		"username": "demo1",
+		"pwd": "welcome"
+	});
+
+	let from_json = serde_json::to_string(&login_data)?;
+	println!("{}",from_json);
+
+	let encryptedData = model::EncryptedData::encrypt_and_sign(&from_json)?;
+
+
+
 	// -- Login
 	let req_login = hc.do_post(
 		"/api/login",
-		json!({
-			"username": "demo1",
-			"pwd": "welcome"
-		}),
+		json!(encryptedData),
 	);
 	req_login.await?.print().await?;
 	
