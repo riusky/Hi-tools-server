@@ -4,15 +4,17 @@ pub mod error;
 pub use self::error::{Error, Result};
 use crate::config::rsa_config;
 use base64::engine::{general_purpose, Engine};
+use lib_utils::b64;
 use rand::Rng;
 use ring::aead;
-use rsa::{
-    sha2::{Sha256, Digest},
-    signature::{Signer, Verifier},
-    pkcs8::{DecodePrivateKey, DecodePublicKey},
-    Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,pkcs1v15
-};
 use rsa::pkcs1v15::{SigningKey, VerifyingKey};
+use rsa::{
+	pkcs1v15,
+	pkcs8::{DecodePrivateKey, DecodePublicKey},
+	sha2::{Digest, Sha256},
+	signature::{Signer, Verifier},
+	Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,
+};
 
 /// 生成指定长度的随机字节数组。
 ///
@@ -24,8 +26,8 @@ use rsa::pkcs1v15::{SigningKey, VerifyingKey};
 ///
 /// 包含 `len` 个随机字节的向量。
 fn generate_random_bytes(len: usize) -> Vec<u8> {
-    let mut rng = rand::thread_rng();
-    (0..len).map(|_| rng.gen()).collect()
+	let mut rng = rand::thread_rng();
+	(0..len).map(|_| rng.gen()).collect()
 }
 
 /// 使用指定的密钥通过 AES-256-GCM 加密给定的明文。
@@ -43,25 +45,22 @@ fn generate_random_bytes(len: usize) -> Vec<u8> {
 ///
 /// 如果加密过程失败，返回 `Error`。
 pub fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
-    let iv = generate_random_bytes(12);
+	let iv = generate_random_bytes(12);
 
-    let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
-        .map_err(|_| Error::KeyGenerationError)?;
-    let sealing_key = aead::LessSafeKey::new(sealing_key);
-    let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
-        .map_err(|_| Error::KeyGenerationError)?;
+	let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+		.map_err(|_| Error::KeyGenerationError)?;
+	let sealing_key = aead::LessSafeKey::new(sealing_key);
+	let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
+		.map_err(|_| Error::KeyGenerationError)?;
 
-    let mut in_out = plaintext.as_bytes().to_vec();
-    in_out.extend_from_slice(&[0u8; 16]);
+	let mut in_out = plaintext.as_bytes().to_vec();
+	in_out.extend_from_slice(&[0u8; 16]);
 
-    sealing_key
-        .seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
-        .map_err(|_| Error::EncryptionError)?;
+	sealing_key
+		.seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+		.map_err(|_| Error::EncryptionError)?;
 
-    Ok((
-        general_purpose::URL_SAFE_NO_PAD.encode(in_out),
-        general_purpose::URL_SAFE_NO_PAD.encode(iv),
-    ))
+	Ok((b64::b64u_encode(in_out), b64::b64u_encode(iv)))
 }
 
 /// 使用指定的密钥通过 AES-256-GCM 加密给定的明文。
@@ -78,28 +77,28 @@ pub fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
 /// # 错误
 ///
 /// 如果加密过程失败，返回 `Error`。
-pub fn encrypt_aes_plaintext(plaintext: &str) -> Result<(String,String,String)> {
-    let key = generate_random_bytes(32);
-    let iv = generate_random_bytes(12);
+pub fn encrypt_aes_plaintext(plaintext: &str) -> Result<(String, String, String)> {
+	let key = generate_random_bytes(32);
+	let iv = generate_random_bytes(12);
 
-    let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
-        .map_err(|_| Error::KeyGenerationError)?;
-    let sealing_key = aead::LessSafeKey::new(sealing_key);
-    let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
-        .map_err(|_| Error::KeyGenerationError)?;
+	let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
+		.map_err(|_| Error::KeyGenerationError)?;
+	let sealing_key = aead::LessSafeKey::new(sealing_key);
+	let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
+		.map_err(|_| Error::KeyGenerationError)?;
 
-    let mut in_out = plaintext.as_bytes().to_vec();
-    in_out.extend_from_slice(&[0u8; 16]);
+	let mut in_out = plaintext.as_bytes().to_vec();
+	in_out.extend_from_slice(&[0u8; 16]);
 
-    sealing_key
-        .seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
-        .map_err(|_| Error::EncryptionError)?;
+	sealing_key
+		.seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+		.map_err(|_| Error::EncryptionError)?;
 
-    Ok((
-        general_purpose::URL_SAFE_NO_PAD.encode(key),
-        general_purpose::URL_SAFE_NO_PAD.encode(iv),
-        general_purpose::URL_SAFE_NO_PAD.encode(in_out),
-    ))
+	Ok((
+		b64::b64u_encode(key),
+		b64::b64u_encode(iv),
+		b64::b64u_encode(in_out),
+	))
 }
 
 /// 使用指定的密钥和初始化向量 (IV) 通过 AES-256-GCM 解密给定的密文。
@@ -118,29 +117,27 @@ pub fn encrypt_aes_plaintext(plaintext: &str) -> Result<(String,String,String)> 
 ///
 /// 如果解密过程失败，返回 `Error`。
 pub fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
-    let ciphertext_bytes = general_purpose::URL_SAFE_NO_PAD
-        .decode(ciphertext)
-        .map_err(|_| Error::DecodeError)?;
-    let iv_bytes = general_purpose::URL_SAFE_NO_PAD
-        .decode(iv)
-        .map_err(|_| Error::DecodeError)?;
+	let ciphertext_bytes =
+		b64::b64u_decode(ciphertext).map_err(|_| Error::DecodeError)?;
+	let iv_bytes = b64::b64u_decode(iv).map_err(|_| Error::DecodeError)?;
 
-    let opening_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
-        .map_err(|_| Error::KeyGenerationError)?;
-    let opening_key = aead::LessSafeKey::new(opening_key);
-    let nonce = aead::Nonce::try_assume_unique_for_key(&iv_bytes)
-        .map_err(|_| Error::KeyGenerationError)?;
+	let opening_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+		.map_err(|_| Error::KeyGenerationError)?;
+	let opening_key = aead::LessSafeKey::new(opening_key);
+	let nonce = aead::Nonce::try_assume_unique_for_key(&iv_bytes)
+		.map_err(|_| Error::KeyGenerationError)?;
 
-    let mut in_out = ciphertext_bytes.to_vec();
-    let decrypted_data = opening_key
-        .open_in_place(nonce, aead::Aad::empty(), &mut in_out)
-        .map_err(|_| Error::DecryptionError)?;
+	let mut in_out = ciphertext_bytes.to_vec();
+	let decrypted_data = opening_key
+		.open_in_place(nonce, aead::Aad::empty(), &mut in_out)
+		.map_err(|_| Error::DecryptionError)?;
 
-    let decrypted_data_len = decrypted_data.len();
-    let plaintext_len = decrypted_data_len - 16;
-    let decrypted_plaintext = &decrypted_data[..plaintext_len];
+	let decrypted_data_len = decrypted_data.len();
+	let plaintext_len = decrypted_data_len - 16;
+	let decrypted_plaintext = &decrypted_data[..plaintext_len];
 
-    String::from_utf8(decrypted_plaintext.to_vec()).map_err(|_| Error::Utf8ConversionError)
+	String::from_utf8(decrypted_plaintext.to_vec())
+		.map_err(|_| Error::Utf8ConversionError)
 }
 
 /// 使用公钥通过 RSA 加密给定的明文。
@@ -157,16 +154,20 @@ pub fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
 ///
 /// 如果加密过程失败，返回 `Error`。
 pub fn encrypt_rsa(plaintext: &str) -> Result<String> {
-    let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
-        .map_err(|_| Error::Utf8ConversionError)?;
-    let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
-        .map_err(|_| Error::RsaKeyGenerationError)?;
+	let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
+		.map_err(|_| Error::Utf8ConversionError)?;
+	let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
+		.map_err(|_| Error::RsaKeyGenerationError)?;
 
-    let encrypted_data = public_key
-        .encrypt(&mut rand::thread_rng(), Pkcs1v15Encrypt, plaintext.as_bytes())
-        .map_err(|_| Error::RsaEncryptionError)?;
+	let encrypted_data = public_key
+		.encrypt(
+			&mut rand::thread_rng(),
+			Pkcs1v15Encrypt,
+			plaintext.as_bytes(),
+		)
+		.map_err(|_| Error::RsaEncryptionError)?;
 
-    Ok(general_purpose::URL_SAFE_NO_PAD.encode(encrypted_data))
+	Ok(b64::b64u_encode(encrypted_data))
 }
 
 /// 使用私钥通过 RSA 解密给定的密文。
@@ -183,20 +184,18 @@ pub fn encrypt_rsa(plaintext: &str) -> Result<String> {
 ///
 /// 如果解密过程失败，返回 `Error`。
 pub fn decrypt_rsa(enc_data: &str) -> Result<String> {
-    let enc_data = general_purpose::URL_SAFE_NO_PAD
-        .decode(enc_data)
-        .map_err(|_| Error::DecodeError)?;
+	let enc_data = b64::b64u_decode(enc_data).map_err(|_| Error::DecodeError)?;
 
-    let private_key_pem = String::from_utf8(rsa_config().PRIVATE_KEY.to_vec())
-        .map_err(|_| Error::Utf8ConversionError)?;
-    let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
-        .map_err(|_| Error::RsaKeyGenerationError)?;
+	let private_key_pem = String::from_utf8(rsa_config().PRIVATE_KEY.to_vec())
+		.map_err(|_| Error::Utf8ConversionError)?;
+	let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
+		.map_err(|_| Error::RsaKeyGenerationError)?;
 
-    let decrypted_data = private_key
-        .decrypt(Pkcs1v15Encrypt, &enc_data)
-        .map_err(|_| Error::RsaDecryptionError)?;
+	let decrypted_data = private_key
+		.decrypt(Pkcs1v15Encrypt, &enc_data)
+		.map_err(|_| Error::RsaDecryptionError)?;
 
-    String::from_utf8(decrypted_data).map_err(|_| Error::Utf8ConversionError)
+	String::from_utf8(decrypted_data).map_err(|_| Error::Utf8ConversionError)
 }
 
 /// 使用私钥对给定的数据进行签名。
@@ -213,25 +212,21 @@ pub fn decrypt_rsa(enc_data: &str) -> Result<String> {
 ///
 /// 如果签名过程失败，返回 `Error`。
 pub fn sign_rsa(data: &str) -> Result<String> {
-    let private_key_pem = String::from_utf8(rsa_config().PRIVATE_KEY.to_vec())
-        .map_err(|_| Error::Utf8ConversionError)?;
-    let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
-        .map_err(|_| Error::RsaKeyGenerationError)?;
+	let private_key_pem = String::from_utf8(rsa_config().PRIVATE_KEY.to_vec())
+		.map_err(|_| Error::Utf8ConversionError)?;
+	let private_key = RsaPrivateKey::from_pkcs8_pem(&private_key_pem)
+		.map_err(|_| Error::RsaKeyGenerationError)?;
 
-    let mut hasher = Sha256::new();
-    hasher.update(data.as_bytes());
-    let hashed = hasher.finalize();
+	let mut hasher = Sha256::new();
+	hasher.update(data.as_bytes());
+	let hashed = hasher.finalize();
 
-    let signing_key = SigningKey::<Sha256>::new(private_key);
-    let signature = signing_key.try_sign(&hashed).map_err(|_| Error::RsaKeyGenerationError)?;
-    println!("signature_str: {}", signature.to_string());
-    // let into:String = signature.into();
-    // let bytes = signature.to_bytes().as_ref();
-    
-    // let vec = signature.to_bytes().as_ref().to_vec();
-    // signature.to
-
-    Ok(general_purpose::URL_SAFE_NO_PAD.encode(signature.to_string()))
+	let signing_key = SigningKey::<Sha256>::new(private_key);
+	let signature = signing_key
+		.try_sign(&hashed)
+		.map_err(|_| Error::RsaSigningError)?;
+	let into: Box<[u8]> = signature.into();
+	Ok(b64::b64u_encode(into.as_ref()))
 }
 
 /// 使用公钥验证给定数据的签名。
@@ -249,73 +244,65 @@ pub fn sign_rsa(data: &str) -> Result<String> {
 ///
 /// 如果验证过程失败，返回 `Error`。
 pub fn verify_rsa(data: &str, signature: &str) -> Result<()> {
-    let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
-        .map_err(|_| Error::Utf8ConversionError)?;
-    let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
-        .map_err(|_| Error::RsaKeyGenerationError)?;
+	let public_key_pem = String::from_utf8(rsa_config().PUBLIC_KEY.to_vec())
+		.map_err(|_| Error::Utf8ConversionError)?;
+	let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem)
+		.map_err(|_| Error::RsaKeyGenerationError)?;
 
-    let mut hasher = Sha256::new();
-    hasher.update(data.as_bytes());
-    let hashed = hasher.finalize();
+	let mut hasher = Sha256::new();
+	hasher.update(data.as_bytes());
+	let hashed = hasher.finalize();
 
-    let signature_bytes = general_purpose::URL_SAFE_NO_PAD
-        .decode(signature)
-        .map_err(|_| Error::DecodeError)?;
-    println!("signature_str: {}", String::from_utf8(signature_bytes.clone()).unwrap());
+	let signature_bytes =
+		b64::b64u_decode(signature).map_err(|_| Error::DecodeError)?;
 
-    let verifying_key = VerifyingKey::<Sha256>::new(public_key);
-    let signature = pkcs1v15::Signature::try_from(signature_bytes.as_slice())
-        .map_err(|_| Error::RsaVerificationError)?;
+	let verifying_key = VerifyingKey::<Sha256>::new(public_key);
+	let signature = pkcs1v15::Signature::try_from(signature_bytes.as_ref())
+		.map_err(|_| Error::RsaVerificationError)?;
 
+	verifying_key
+		.verify(&hashed, &signature)
+		.map_err(|_| Error::RsaVerificationError)?;
 
-    println!("signature_str: {}", signature.to_string());
-
-    verifying_key
-        .verify(&hashed, &signature)
-        .map_err(|_| Error::RsaVerificationError)?;
-
-    Ok(())
+	Ok(())
 }
 
 /// 加密函数的单元测试。
 #[cfg(test)]
 mod tests {
-    use super::*;
-    pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+	use super::*;
+	pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
-    /// 测试 AES 和 RSA 加密/解密函数。
-    #[tokio::test]
-    async fn test_decrypt_ok() -> Result<()> {
-        let key = generate_random_bytes(32);
-        println!(
-            "生成的密钥: {}",
-            general_purpose::URL_SAFE_NO_PAD.encode(&key)
-        );
+	/// 测试 AES 和 RSA 加密/解密函数。
+	#[tokio::test]
+	async fn test_decrypt_ok() -> Result<()> {
+		let key = generate_random_bytes(32);
+		println!("生成的密钥: {}", b64::b64u_encode(&key));
 
-        let plaintext = "Hello, AES with random IV and Key!";
-        let (encrypted, iv) = encrypt_aes(&key, plaintext)?;
-        println!("AES的随机向量IV: {}", iv);
-        println!("加密后的密文: {}", encrypted);
+		let plaintext = "Hello, AES with random IV and Key!";
+		let (encrypted, iv) = encrypt_aes(&key, plaintext)?;
+		println!("AES的随机向量IV: {}", iv);
+		println!("加密后的密文: {}", encrypted);
 
-        let decrypted = decrypt_aes(&key, &encrypted, &iv)?;
-        println!("解密后的明文: {}", decrypted);
-        assert_eq!(plaintext, decrypted);
+		let decrypted = decrypt_aes(&key, &encrypted, &iv)?;
+		println!("解密后的明文: {}", decrypted);
+		assert_eq!(plaintext, decrypted);
 
-        let rsa_str = encrypt_rsa("123")?;
-        println!("加密后的 RSA 字符串: {}", rsa_str);
+		let rsa_str = encrypt_rsa("123")?;
+		println!("加密后的 RSA 字符串: {}", rsa_str);
 
-        let rsa_str_en = decrypt_rsa(&rsa_str)?;
-        println!("解密后的 RSA 字符串: {}", rsa_str_en);
-        assert_eq!("123", rsa_str_en);
+		let rsa_str_en = decrypt_rsa(&rsa_str)?;
+		println!("解密后的 RSA 字符串: {}", rsa_str_en);
+		assert_eq!("123", rsa_str_en);
 
-        // 测试 RSA 签名和验签
-        let data = "hello, RSA signing!";
-        let signature = sign_rsa(data)?;
-        println!("签名: {}", signature);
-    
-        verify_rsa(data, &signature)?;
-        println!("验证成功!");
+		// 测试 RSA 签名和验签
+		let data = "hello, RSA signing!";
+		let signature = sign_rsa(data)?;
+		println!("签名: {}", signature);
 
-        Ok(())
-    }
+		verify_rsa(data, &signature)?;
+		println!("验证成功!");
+
+		Ok(())
+	}
 }
