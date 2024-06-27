@@ -26,3 +26,4 @@ serde = { version = "1", features = ["derive"] }
 # -- Hashing (pwd-scheme01 & Token)
 derive_more = { workspace = true }
 enum_dispatch = "0.3"
+uuid = {version = "1", features = ["v4","fast-rng",]}

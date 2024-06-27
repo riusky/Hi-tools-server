@@ -43,10 +43,11 @@ fn generate_random_bytes(len: usize) -> Vec<u8> {
 /// # 错误
 ///
 /// 如果加密过程失败，返回 `Error`。
-pub fn encrypt_aes(key: &[u8], plaintext: &str) -> Result<(String, String)> {
+pub fn encrypt_aes(key_str: &str, plaintext: &str) -> Result<(String, String)> {
+    let key = b64::b64u_decode(key_str).map_err(|_| Error::DecodeError)?;
 	let iv = generate_random_bytes(12);
 
-	let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+	let sealing_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
 		.map_err(|_| Error::KeyGenerationError)?;
 	let sealing_key = aead::LessSafeKey::new(sealing_key);
 	let nonce = aead::Nonce::try_assume_unique_for_key(&iv)
@@ -115,12 +116,13 @@ pub fn encrypt_aes_plaintext(plaintext: &str) -> Result<(String, String, String)
 /// # 错误
 ///
 /// 如果解密过程失败，返回 `Error`。
-pub fn decrypt_aes(key: &[u8], ciphertext: &str, iv: &str) -> Result<String> {
+pub fn decrypt_aes(key_str: &str, ciphertext: &str, iv: &str) -> Result<String> {
+    let key = b64::b64u_decode(key_str).map_err(|_| Error::DecodeError)?;
 	let ciphertext_bytes =
 		b64::b64u_decode(ciphertext).map_err(|_| Error::DecodeError)?;
 	let iv_bytes = b64::b64u_decode(iv).map_err(|_| Error::DecodeError)?;
 
-	let opening_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+	let opening_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key)
 		.map_err(|_| Error::KeyGenerationError)?;
 	let opening_key = aead::LessSafeKey::new(opening_key);
 	let nonce = aead::Nonce::try_assume_unique_for_key(&iv_bytes)
@@ -279,11 +281,12 @@ mod tests {
 		println!("生成的密钥: {}", b64::b64u_encode(&key));
 
 		let plaintext = "Hello, AES with random IV and Key!";
-		let (encrypted, iv) = encrypt_aes(&key, plaintext)?;
+        let key_b64u_encode = b64::b64u_encode(key.clone());
+		let (encrypted, iv) = encrypt_aes(&key_b64u_encode, plaintext)?;
 		println!("AES的随机向量IV: {}", iv);
 		println!("加密后的密文: {}", encrypted);
 
-		let decrypted = decrypt_aes(&key, &encrypted, &iv)?;
+		let decrypted = decrypt_aes(&key_b64u_encode, &encrypted, &iv)?;
 		println!("解密后的明文: {}", decrypted);
 		assert_eq!(plaintext, decrypted);
 
