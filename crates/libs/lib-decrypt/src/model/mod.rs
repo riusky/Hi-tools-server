@@ -1,7 +1,7 @@
 pub use self::error::{Error, Result};
 use crate::crypt::error;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, Value};
+use serde_json::Value;
 use std::str::FromStr;
 use lib_utils::json::is_valid_json;
 use lib_utils::time::{now_utc, format_time};

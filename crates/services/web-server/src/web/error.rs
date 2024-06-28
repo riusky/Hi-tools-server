@@ -155,6 +155,9 @@ impl Error {
 			// -- Auth
 			CtxExt(_) => (StatusCode::FORBIDDEN, ClientError::NO_AUTH),
 
+			// -- Auth
+			DecryptExt(_) => (StatusCode::BAD_REQUEST, ClientError::DecryptExtError),
+
 			// -- Model
 			Model(model::Error::EntityNotFound { entity, id }) => (
 				StatusCode::BAD_REQUEST,
@@ -214,6 +217,8 @@ pub enum ClientError {
 	RPC_REQUEST_INVALID(String),
 	RPC_REQUEST_METHOD_UNKNOWN(String),
 	RPC_PARAMS_INVALID(String),
+
+	DecryptExtError,
 
 	SERVICE_ERROR,
 }

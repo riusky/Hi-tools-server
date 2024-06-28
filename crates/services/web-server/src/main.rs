@@ -41,7 +41,8 @@ async fn main() -> Result<()> {
 
 	// -- Define Routes
 	let routes_rpc = web::routes_rpc::routes(mm.clone())
-		.route_layer(middleware::from_fn(mw_ctx_require));
+		.route_layer(middleware::from_fn(mw_ctx_require))
+		.route_layer(middleware::from_fn(mw_req_decrypt_resolver));
 
 	let routes_all = Router::new()
 		.merge(login_routes)
