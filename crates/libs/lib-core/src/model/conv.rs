@@ -18,11 +18,10 @@ use serde_with::serde_as;
 use sqlx::types::time::OffsetDateTime;
 use sqlx::FromRow;
 
-// region:    --- Conv Types
+// region:    --- 会话类型
 
-/// Trait to implement on entities that have a conv_id
-/// This will allow Ctx to be upgraded with the corresponding conv_id for
-/// future access control.
+/// 实现此特性的实体具有 conv_id 方法
+/// 这将允许将 Ctx 升级为具有相应 conv_id 的状态，以便将来进行访问控制。
 pub trait ConvScoped {
 	fn conv_id(&self) -> i64;
 }
@@ -35,30 +34,29 @@ pub enum ConvKind {
 	MultiUsers,
 }
 
-/// Note: Manual implementation.
-///       Required for a modql::field::Fields
+/// 注意：手动实现
+///       必须为 modql::field::Fields 提供实现
 impl From<ConvKind> for sea_query::Value {
 	fn from(val: ConvKind) -> Self {
 		val.to_string().into()
 	}
 }
 
-/// Note: Manual implementation.
-///       This is required for sea::query in case of None.
-///       However, in this codebase, we utilize the modql not_none_field,
-///       so this will be disregarded anyway.
-///       Nonetheless, it's still necessary for compilation.
+/// 注意：手动实现
+///       在 None 情况下，sea::query 需要此实现。
+///       但是，在此代码库中，我们使用 modql 的 not_none_field，
+///       所以这个实现将被忽略。
+///       尽管如此，它仍然是编译所必需的。
 impl Nullable for ConvKind {
 	fn null() -> sea_query::Value {
 		ConvKind::OwnerOnly.into()
 	}
 }
 
-/// Note: Here we derive from modql `SeaFieldValue` which implements
-///       the `From<ConvState> for sea_query::Value` and the
+/// 注意：这里我们从 modql 的 `SeaFieldValue` 派生，它实现了
+///       `From<ConvState> for sea_query::Value` 和
 ///       `sea_query::value::Nullable for ConvState`
-///       See the `ConvKind` for the manual implementation.
-///       
+///       请参见 `ConvKind` 的手动实现。
 #[derive(
 	Debug,
 	Clone,
@@ -79,21 +77,21 @@ pub enum ConvState {
 pub struct Conv {
 	pub id: i64,
 
-	// -- Relations
+	// -- 关系
 	pub agent_id: i64,
 	pub owner_id: i64,
 
-	// -- Properties
+	// -- 属性
 	pub title: Option<String>,
 	pub kind: ConvKind,
 	pub state: ConvState,
 
-	// -- Timestamps
-	// creator user_id and time
+	// -- 时间戳
+	// 创建者用户 ID 和时间
 	pub cid: i64,
 	#[serde_as(as = "Rfc3339")]
 	pub ctime: OffsetDateTime,
-	// last modifier user_id and time
+	// 最后修改者用户 ID 和时间
 	pub mid: i64,
 	#[serde_as(as = "Rfc3339")]
 	pub mtime: OffsetDateTime,
@@ -138,9 +136,9 @@ pub struct ConvFilter {
 	pub mtime: Option<OpValsValue>,
 }
 
-// endregion: --- Conv Types
+// endregion: --- 会话类型
 
-// region:    --- ConvBmc
+// region:    --- 会话 BMC
 
 pub struct ConvBmc;
 
@@ -152,7 +150,7 @@ impl DbBmc for ConvBmc {
 	}
 }
 
-// This will generate the `impl ConvBmc {...}` with the default CRUD functions.
+// 这将生成带有默认 CRUD 函数的 `impl ConvBmc {...}`。
 generate_common_bmc_fns!(
 	Bmc: ConvBmc,
 	Entity: Conv,
@@ -161,13 +159,13 @@ generate_common_bmc_fns!(
 	Filter: ConvFilter,
 );
 
-// Additional ConvBmc methods to manage the `ConvMsg` constructs.
+// 其他用于管理 `ConvMsg` 构造的 ConvBmc 方法。
 impl ConvBmc {
-	/// Add a `ConvMsg` to a `Conv`
+	/// 向会话添加 `ConvMsg`
 	///
-	// For access constrol, we will add:
-	// #[ctx_add(conv, space)]
-	// #[requires_privilege_any_of("og:FullAccess", "sp:FullAccess", "conv@owner_id" "conv:AddMsg")]
+	/// 为了进行访问控制，我们将添加：
+	/// #[ctx_add(conv, space)]
+	/// #[requires_privilege_any_of("og:FullAccess", "sp:FullAccess", "conv@owner_id" "conv:AddMsg")]
 	pub async fn add_msg(
 		ctx: &Ctx,
 		mm: &ModelManager,
@@ -179,8 +177,8 @@ impl ConvBmc {
 		Ok(conv_msg_id)
 	}
 
-	/// NOTE: The current strategy is to not require conv_id, but we will check
-	///       that user have `conv:ReadMsg` privilege on correponding conv (post base::get).
+	/// 注意：当前策略是不需要 conv_id，但我们将检查
+	///       用户是否在相应的会话中拥有 `conv:ReadMsg` 特权（在 base::get 之后）。
 	pub async fn get_msg(
 		ctx: &Ctx,
 		mm: &ModelManager,
@@ -188,7 +186,7 @@ impl ConvBmc {
 	) -> Result<ConvMsg> {
 		let conv_msg: ConvMsg = base::get::<ConvMsgBmc, _>(ctx, mm, msg_id).await?;
 
-		// TODO: Validate conv_msg is with ctx.conv_id
+		// TODO: 验证 conv_msg 是否属于 ctx.conv_id
 		//       let _ctx = ctx.add_conv_id(conv_msg.conv_id());
 		//       assert_privileges(&ctx, &mm, &["conv@owner_id", "conv:ReadMsg"]);
 
@@ -196,14 +194,14 @@ impl ConvBmc {
 	}
 }
 
-// endregion: --- ConvBmc
+// endregion: --- 会话 BMC
 
-// region:    --- Tests
+// region:    --- 测试
 
 #[cfg(test)]
 mod tests {
 	type Error = Box<dyn std::error::Error>;
-	type Result<T> = core::result::Result<T, Error>; // For tests.
+	type Result<T> = core::result::Result<T, Error>; // 用于测试。
 
 	use super::*;
 	use crate::_dev_utils::{self, seed_agent};
@@ -215,14 +213,14 @@ mod tests {
 	#[serial]
 	#[tokio::test]
 	async fn test_create_ok() -> Result<()> {
-		// -- Setup & Fixtures
+		// -- 设置和初始化数据
 		let mm = _dev_utils::init_test().await;
 		let ctx = Ctx::root_ctx();
 		let fx_title = "test_create_ok conv 01";
 		let fx_kind = ConvKind::MultiUsers;
 		let agent_id = seed_agent(&ctx, &mm, "test_create_ok conv agent 01").await?;
 
-		// -- Exec
+		// -- 执行
 		let conv_id = ConvBmc::create(
 			&ctx,
 			&mm,
@@ -234,12 +232,12 @@ mod tests {
 		)
 		.await?;
 
-		// -- Check
+		// -- 检查
 		let conv: Conv = ConvBmc::get(&ctx, &mm, conv_id).await?;
 		assert_eq!(&conv.kind, &fx_kind);
-		assert_eq!(conv.title.ok_or("conv should have title")?, fx_title);
+		assert_eq!(conv.title.ok_or("会话应该有标题")?, fx_title);
 
-		// -- Clean
+		// -- 清理
 		ConvBmc::delete(&ctx, &mm, conv_id).await?;
 		AgentBmc::delete(&ctx, &mm, agent_id).await?;
 
@@ -249,7 +247,7 @@ mod tests {
 	#[serial]
 	#[tokio::test]
 	async fn test_list_ok() -> Result<()> {
-		// -- Setup & Fixtures
+		// -- 设置和初始化数据
 		let mm = _dev_utils::init_test().await;
 		let ctx = Ctx::root_ctx();
 		let fx_title_prefix = "test_list_ok conv - ";
@@ -274,7 +272,7 @@ mod tests {
 			.await?;
 		}
 
-		// -- Exec
+		// -- 执行
 		let convs = ConvBmc::list(
 			&ctx,
 			&mm,
@@ -282,7 +280,7 @@ mod tests {
 				agent_id: Some(agent_id.into()),
 
 				kind: Some(OpValString::In(vec!["MultiUsers".to_string()]).into()),
-				// or
+				// 或者
 				// kind: Some(OpValString::Eq("MultiUsers".to_string()).into()),
 				..Default::default()
 			}]),
@@ -290,20 +288,20 @@ mod tests {
 		)
 		.await?;
 
-		// -- Check
-		// extract the 04, 05, 06 parts of the tiles
+		// -- 检查
+		// 提取标题中的 04、05、06 部分
 		let num_parts = convs
 			.iter()
 			.filter_map(|c| c.title.as_ref().and_then(|s| s.split("- ").nth(1)))
 			.collect::<Vec<&str>>();
 		assert_eq!(num_parts, &["04", "05", "06"]);
 
-		// -- Clean
-		// This should delete cascade
+		// -- 清理
+		// 这应该级联删除
 		AgentBmc::delete(&ctx, &mm, agent_id).await?;
 
 		Ok(())
 	}
 }
 
-// endregion: --- Tests
+// endregion: --- 测试
