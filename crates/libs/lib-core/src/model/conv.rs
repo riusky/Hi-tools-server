@@ -235,7 +235,7 @@ mod tests {
 		// -- 检查
 		let conv: Conv = ConvBmc::get(&ctx, &mm, conv_id).await?;
 		assert_eq!(&conv.kind, &fx_kind);
-		assert_eq!(conv.title.ok_or("会话应该有标题")?, fx_title);
+		assert_eq!(conv.title.ok_or("conv should have title")?, fx_title);
 
 		// -- 清理
 		ConvBmc::delete(&ctx, &mm, conv_id).await?;
