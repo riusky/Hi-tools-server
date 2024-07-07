@@ -14,6 +14,7 @@ use rsa::{
 	signature::{Signer, Verifier},
 	Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,
 };
+use sha3::Sha3_256;
 
 /// 生成指定长度的随机字节数组。
 ///
@@ -268,6 +269,47 @@ pub fn verify_rsa(data: &str, signature: &str) -> Result<()> {
 	Ok(())
 }
 
+/// 计算给定数据的 SHA-3-256 摘要。
+///
+/// # 参数
+///
+/// * `data` - 要计算摘要的数据，以字符串形式传入。
+///
+/// # 返回值
+///
+/// 返回计算得到的 SHA-3-256 摘要的十六进制字符串表示。
+///
+/// # 示例
+///
+/// ```rust
+/// use your_module::sha3_256_digest;
+///
+/// let data = "hello, SHA-3!";
+/// let hash = sha3_256_digest(data);
+/// println!("SHA-3-256 摘要: {}", hash);
+/// ```
+///
+/// # 注意
+///
+/// SHA-3-256 摘要算法生成的哈希值长度为 256 位（即 64 个十六进制字符）。
+///
+pub fn sha3_256_digest(data: &str) -> String {
+    // 创建 SHA-3-256 哈希算法实例
+    let mut hasher = Sha3_256::new();
+
+    // 更新哈希算法实例的输入数据为 data 的字节数组
+    hasher.update(data.as_bytes());
+
+    // 计算并获取哈希值的结果
+    let result = hasher.finalize();
+
+    // 将哈希值结果转换为十六进制字符串表示
+    let hex_string = format!("{:x}", result);
+
+    // 返回十六进制字符串表示的 SHA-3-256 摘要
+    hex_string
+}
+
 /// 加密函数的单元测试。
 #[cfg(test)]
 mod tests {
@@ -307,4 +349,15 @@ mod tests {
 
 		Ok(())
 	}
+
+
+	#[test]
+    fn test_sha3_256_digest() {
+        let data = "hello, SHA-3!";
+        let expected_hash = "9bc83be62d29b9bf0c12503381f5dea2a7cf59b78903afe8e982bb42c316a144";
+
+        let hash = sha3_256_digest(data);
+		println!("SHA-3-256 摘要: {:?}", hash);
+        assert_eq!(hash, expected_hash);
+    }
 }
