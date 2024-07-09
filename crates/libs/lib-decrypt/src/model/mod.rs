@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::str::FromStr;
 use lib_utils::json::is_valid_json;
 use lib_utils::time::{now_utc, format_time};
-use crate::crypt::{encrypt_aes_plaintext, encrypt_rsa, sign_rsa, decrypt_aes, decrypt_rsa, verify_rsa};
+use crate::crypt::{encrypt_aes_plaintext, encrypt_rsa, sign_rsa, decrypt_aes, decrypt_rsa, verify_rsa, sha3_256_digest};
 use uuid::Uuid;
 
 /// 结构体 `EncryptedData` 用于表示经过加密和签名的数据结构。
@@ -115,6 +115,67 @@ impl EncryptedData {
 
         Ok(plaintext)
     }
+
+
+    /// 计算 EncryptedData 结构的 SHA-3-256 摘要。
+    ///
+    /// # 返回值
+    ///
+    /// 返回计算得到的 SHA-3-256 摘要的十六进制字符串表示。
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// let data = EncryptedData {
+    ///     a: "encrypted_a".to_string(),
+    ///     b: "encrypted_b".to_string(),
+    ///     c: "encrypted_c".to_string(),
+    ///     d: "encrypted_d".to_string(),
+    ///     e: "encrypted_e".to_string(),
+    ///     f: "signature".to_string(),
+    /// };
+    /// let hash = data.sha3_256_digest();
+    /// println!("SHA-3-256 摘要: {}", hash);
+    /// ```
+    pub fn sha3_256_digest(&self) -> String {
+        let concatenated_data = format!(
+            "{}{}{}{}{}{}",
+            self.a, self.b, self.c, self.d, self.e, self.f
+        );
+        sha3_256_digest(&concatenated_data)
+    }
+
+    /// 比较传入的摘要字符串与 EncryptedData 结构的 SHA-3-256 摘要。
+    ///
+    /// # 参数
+    ///
+    /// * `digest_str` - 要比较的 SHA-3-256 摘要字符串。
+    ///
+    /// # 返回值
+    ///
+    /// 如果传入的摘要字符串与 EncryptedData 结构的摘要相同，返回 `true`，否则返回 `false`。
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// let data = EncryptedData {
+    ///     a: String::from("encrypted_aes_key"),
+    ///     b: String::from("encrypted_aes_iv"),
+    ///     c: String::from("encrypted_data"),
+    ///     d: String::from("encrypted_request_time"),
+    ///     e: String::from("encrypted_request_id"),
+    ///     f: String::from("rsa_signature"),
+    /// };
+    ///
+    /// let hash = data.sha3_256_digest();
+    /// assert!(data.compare_sha3(&hash));
+    ///
+    /// let different_hash = "different_sha3_hash";
+    /// assert!(!data.compare_sha3(different_hash));
+    /// ```
+    pub fn compare_sha3(&self, digest_str: &str) -> bool {
+        self.sha3_256_digest() == digest_str
+    }
 }
 
 impl FromStr for EncryptedData {
@@ -198,6 +259,49 @@ mod tests {
         let json_string = encrypted_data.to_json_string().unwrap();
         println!("EncryptedData as JSON: {}", json_string);
 
+    }
+
+    #[test]
+    fn test_sha3_256_digest() {
+        let encrypted_data = EncryptedData {
+            a: String::from("encrypted_aes_key"),
+            b: String::from("encrypted_aes_iv"),
+            c: String::from("encrypted_data"),
+            d: String::from("encrypted_request_time"),
+            e: String::from("encrypted_request_id"),
+            f: String::from("rsa_signature"),
+        };
+
+        let expected_hash = "b13f816d00ff4972bfc6691dff5da89791c695f0ec3cdb4f90ee8ce74a8c555f"; // Replace with the actual expected hash value
+        let hash = encrypted_data.sha3_256_digest();
+        
+        println!("SHA-3-256 摘要: {}", hash);
+
+        // 这里假设你已经预先计算好了预期的 SHA-3-256 摘要
+        assert_eq!(hash, expected_hash);
+    }
+
+    #[test]
+    fn test_compare_sha3() {
+        let data = EncryptedData {
+            a: String::from("encrypted_aes_key"),
+            b: String::from("encrypted_aes_iv"),
+            c: String::from("encrypted_data"),
+            d: String::from("encrypted_request_time"),
+            e: String::from("encrypted_request_id"),
+            f: String::from("rsa_signature"),
+        };
+
+        let hash = data.sha3_256_digest();
+
+        // Should return true as the hashes should be the same
+        assert!(data.compare_sha3(&hash));
+
+        // A different hash to simulate a different input
+        let different_hash = "9bc83be62d29b9bf0c12503381f5dea2a7cf59b78903afe8e982bb42c316a144";
+
+        // Should return false as the hashes should be different
+        assert!(!data.compare_sha3(different_hash));
     }
 
 
